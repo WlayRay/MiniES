@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/WlayRay/ElectricSearch/config"
 	"github.com/WlayRay/ElectricSearch/internal/kvdb"
 	"github.com/WlayRay/ElectricSearch/types"
 	"github.com/WlayRay/ElectricSearch/util"
@@ -31,7 +32,7 @@ func init() {
 	if indexName == "" || groupIndexStr == "" {
 		// 如果环境变量为空，从 ConfigMap 中读取
 		var ok bool
-		distributedMap, ok = util.ConfigMap["distributed"].(map[string]any)
+		distributedMap, ok = config.ConfigMap["distributed"].(map[string]any)
 		if ok {
 			if indexName == "" {
 				indexName = distributedMap["index-name"].(string)
@@ -68,7 +69,7 @@ func (service *IndexServiceWorker) Init(etcdEndpoints []string, currentGroup, he
 	var docNumEstimate, dbType int
 	var dbPath string
 
-	indexConfig, ok := util.ConfigMap["index"].(map[string]any)
+	indexConfig, ok := config.ConfigMap["index"].(map[string]any)
 	if !ok {
 		panic("index configuration not found!")
 	}
@@ -82,7 +83,7 @@ func (service *IndexServiceWorker) Init(etcdEndpoints []string, currentGroup, he
 
 	// 初始化正排索引文件存储路径
 	if v, ok := indexConfig["db-path"]; ok {
-		dbPath = util.RootPath + strings.Replace(v.(string), "\"", "", -1)
+		dbPath = config.RootPath + strings.Replace(v.(string), "\"", "", -1)
 		if dbPath[len(dbPath)-1] != '/' {
 			dbPath += "/"
 		}

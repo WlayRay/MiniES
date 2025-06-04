@@ -1,4 +1,4 @@
-package util
+package config
 
 import (
 	"os"
@@ -15,9 +15,9 @@ var (
 
 // 获取项目的根路径
 func init() {
-	RootPath = path.Dir(GetCurrentPath()+"..") + "/"
+	RootPath = path.Dir(GetCurrentPath())
 
-	initConf := RootPath + "init.yml"
+	initConf := RootPath + "/config/init.yml"
 	yamlFile, err := os.ReadFile(initConf)
 	if err != nil {
 		panic(err)

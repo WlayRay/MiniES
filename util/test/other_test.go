@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/WlayRay/ElectricSearch/config"
 	"github.com/WlayRay/ElectricSearch/util"
 )
 
@@ -95,9 +96,9 @@ func TestGetLocalIP(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	fmt.Printf("rootpath: %v\n", util.RootPath)
+	fmt.Printf("rootpath: %v\n", config.RootPath)
 	fmt.Printf("ConfigMap:\n")
-	for k, v := range util.ConfigMap {
+	for k, v := range config.ConfigMap {
 		fmt.Printf(" %v: %v\n", k, v)
 	}
 }

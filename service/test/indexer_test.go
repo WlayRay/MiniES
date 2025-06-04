@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/WlayRay/ElectricSearch/config"
 	"github.com/WlayRay/ElectricSearch/internal/kvdb"
 	"github.com/WlayRay/ElectricSearch/service"
 	"github.com/WlayRay/ElectricSearch/types"
@@ -49,9 +50,9 @@ func DeserializeBook(v []byte) *Book {
 
 var (
 	// dbType=kvdb.BOLT
-	// dbPath=util.RootPath+"data/local_db/book_bolt"
+	// dbPath=config.RootPath+"data/local_db/book_bolt"
 	dbType = kvdb.BADGER
-	dbPath = util.RootPath + "data/local_db/items_badger"
+	dbPath = config.RootPath + "data/local_db/items_badger"
 )
 
 func TestSearch(t *testing.T) {

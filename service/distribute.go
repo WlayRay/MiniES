@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/WlayRay/ElectricSearch/config"
 	"github.com/WlayRay/ElectricSearch/etcd"
 	"github.com/dgryski/go-farm"
 	etcdv3 "go.etcd.io/etcd/client/v3"
@@ -305,7 +306,7 @@ func (sentinel *Sentinel) Close() (err error) {
 // getGroupCount 获取当前索引的分组数量
 func (*Sentinel) getGroupCount() int {
 	var etcdServers []string
-	for _, v := range util.ConfigMap["etcd"].(map[string]any)["servers"].([]any) {
+	for _, v := range config.ConfigMap["etcd"].(map[string]any)["servers"].([]any) {
 		etcdServers = append(etcdServers, v.(string))
 	}
 

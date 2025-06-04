@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/WlayRay/ElectricSearch/config"
 	"github.com/WlayRay/ElectricSearch/demo/handler"
 	"github.com/WlayRay/ElectricSearch/internal/kvdb"
 	"github.com/WlayRay/ElectricSearch/util"
@@ -59,7 +60,7 @@ func init() {
 	modeStr := os.Getenv("MODE")
 	if modeStr == "" {
 		// 如果环境变量为空，从 ConfigMap 中读取
-		if v, ok := util.ConfigMap["mode"]; !ok {
+		if v, ok := config.ConfigMap["mode"]; !ok {
 			panic("mode not found in ConfigMap!")
 		} else {
 			mode, _ = strconv.Atoi(fmt.Sprintf("%v", v))
@@ -76,7 +77,7 @@ func init() {
 	}
 
 	// 读取 server 配置
-	serverConfig, ok := util.ConfigMap["server"].(map[string]any)
+	serverConfig, ok := config.ConfigMap["server"].(map[string]any)
 	if !ok {
 		panic("server configuration not found!")
 	}
@@ -106,7 +107,7 @@ func init() {
 	}
 
 	// 读取 distributed 配置
-	distributedConfig, ok := util.ConfigMap["distributed"].(map[string]any)
+	distributedConfig, ok := config.ConfigMap["distributed"].(map[string]any)
 	if mode == 2 && !ok {
 		panic("distributed configuration not found!")
 	}
@@ -124,7 +125,7 @@ func init() {
 	}
 
 	// 读取 index 配置
-	indexConfig, ok := util.ConfigMap["index"].(map[string]any)
+	indexConfig, ok := config.ConfigMap["index"].(map[string]any)
 	if !ok {
 		panic("index configuration not found!")
 	}
@@ -133,7 +134,7 @@ func init() {
 	if v, ok := indexConfig["csv-file"]; !ok {
 		panic("csvFilePath not found in ConfigMap!")
 	} else {
-		csvFilePath = util.RootPath + strings.Replace(fmt.Sprintf("%v", v), "\"", "", -1)
+		csvFilePath = config.RootPath + strings.Replace(fmt.Sprintf("%v", v), "\"", "", -1)
 		util.Log.Debug("csvFilePath: %s", csvFilePath)
 	}
 
@@ -141,7 +142,7 @@ func init() {
 	if v, ok := indexConfig["db-path"]; !ok {
 		panic("dbPath not found in ConfigMap!")
 	} else {
-		dbPath = util.RootPath + strings.Replace(fmt.Sprintf("%v", v), "\"", "", -1)
+		dbPath = config.RootPath + strings.Replace(fmt.Sprintf("%v", v), "\"", "", -1)
 	}
 
 	// 正排索引的存储引擎
@@ -163,7 +164,7 @@ func init() {
 	}
 
 	// 读取 etcd 配置
-	etcdConfig, ok := util.ConfigMap["etcd"].(map[string]any)
+	etcdConfig, ok := config.ConfigMap["etcd"].(map[string]any)
 	if !ok {
 		panic("etcd configuration not found!")
 	}
