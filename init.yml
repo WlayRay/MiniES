@@ -1,5 +1,13 @@
 # 请注意：不要改变每条配置的类型！
 
+log:
+  # 是否开启debug模式
+  level: "debug" # 可选值：debug, info, warn, error, fatal
+  path: ./log/ # 日志文件路径
+  isConsole: true # 是否同时输出到控制台
+  maxSize: 100 # 每个日志文件的最大大小，单位MB
+  format: "text" # 日志格式，可选值：text, json
+
 # 启动哪类服务。1-单机部署（不依赖etcd）, 2-grpc server, 3-分布式部署（依赖etcd）
 # 使用模式3启动前需要用模式2启动多个grpc server
 mode: 3

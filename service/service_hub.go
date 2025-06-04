@@ -1,7 +1,7 @@
 package service
 
 import (
-	"errors"
+	"context"
 	"strconv"
 	"strings"
 	"sync"
@@ -10,7 +10,6 @@ import (
 	"github.com/WlayRay/ElectricSearch/etcd"
 	"github.com/WlayRay/ElectricSearch/util"
 
-	"go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	etcdv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -30,7 +29,7 @@ var (
 func GetServiceHub(etcdEndpoints []string, heartRate int64) *ServiceHub {
 	if serviceHub == nil {
 		if etcdClient, err := etcd.GetEtcdClient(etcdEndpoints); err != nil {
-			util.Log.Fatalf("etcd client init failed: %v", err)
+			util.Log.Panic("etcd client init failed: %v", err)
 		} else {
 			serviceHub = &ServiceHub{
 				client:       etcdClient,
@@ -42,36 +41,43 @@ func GetServiceHub(etcdEndpoints []string, heartRate int64) *ServiceHub {
 	return serviceHub
 }
 
-func (Hub *ServiceHub) Register(group, endpoint string, leaseID etcdv3.LeaseID) (etcdv3.LeaseID, error) {
-	timeoutCtx, cancel := util.GetDefaultTimeoutContext()
+func (Hub *ServiceHub) Register(group, endpoint string) error {
+	// 使用上下文控制整个注册过程
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	if leaseID <= 0 {
-		// 创建一个有效期为heartRate的租约（单位：秒）
-		if lease, err := Hub.client.Grant(timeoutCtx, Hub.heartRate); err != nil {
-			util.Log.Printf("create lease failed: %v", err)
-			return 0, err
-		} else {
-			keys := ServiceRootPath + indexName + "/" + group + "/" + endpoint
-			// 服务注册(向ETCD中写入一个key)
-			if _, err := Hub.client.Put(timeoutCtx, keys, "", etcdv3.WithLease(lease.ID)); err != nil {
-				util.Log.Printf("register service %s endpoint %s failed: %v", group, endpoint, err)
-				return leaseID, err
-			} else {
-				return leaseID, nil
-			}
-		}
-	} else {
-		// 续租
-		if _, err := Hub.client.KeepAliveOnce(timeoutCtx, leaseID); !errors.Is(err, rpctypes.ErrLeaseNotFound) {
-			return Hub.Register(group, endpoint, leaseID)
-		} else if err != nil {
-			util.Log.Printf("keep lease %d failed: %v", leaseID, err)
-			return 0, err
-		} else {
-			return leaseID, nil
-		}
+	// 创建租约
+	lease, err := Hub.client.Grant(timeoutCtx, Hub.heartRate)
+	if err != nil {
+		util.Log.Error("create lease failed: %v", err)
+		return err
 	}
+
+	// 注册服务
+	keys := ServiceRootPath + indexName + "/" + group + "/" + endpoint
+	if _, err := Hub.client.Put(timeoutCtx, keys, "", etcdv3.WithLease(lease.ID)); err != nil {
+		util.Log.Error("register service %s endpoint %s failed: %v", group, endpoint, err)
+		return err
+	}
+
+	// 保持租约
+	keepAliveChan, err := Hub.client.KeepAlive(context.TODO(), lease.ID)
+	if err != nil {
+		util.Log.Error("keep alive failed: %v", err)
+		return err
+	}
+
+	go func() {
+		for kaResp := range keepAliveChan {
+			if kaResp == nil {
+				util.Log.Error("keep alive channel closed for %s/%s", group, endpoint)
+				return
+			}
+			util.Log.Info("keep alive success for %s/%s, ID: %d", group, endpoint, kaResp.ID)
+		}
+	}()
+
+	return nil
 }
 
 // 注销服务
@@ -81,10 +87,10 @@ func (Hub *ServiceHub) UnRegister(group, endpoint string) error {
 
 	key := ServiceRootPath + indexName + "/" + group + "/" + endpoint
 	if _, err := Hub.client.Delete(timeoutCtx, key); err != nil {
-		util.Log.Printf("unregister worker %s endpoint %s failed: %v", group, endpoint, err)
+		util.Log.Error("unregister worker %s endpoint %s failed: %v", group, endpoint, err)
 		return err
 	} else {
-		util.Log.Printf("unregister worker %s endpoint %s success", group, endpoint)
+		util.Log.Info("unregister worker %s endpoint %s success", group, endpoint)
 		return nil
 	}
 }
@@ -96,7 +102,7 @@ func (Hub *ServiceHub) GetServiceEndpoints(group string) []string {
 
 	prefix := ServiceRootPath + indexName + "/" + group
 	if resp, err := Hub.client.Get(timeoutCtx, prefix, etcdv3.WithPrefix()); err != nil {
-		util.Log.Printf("get group %s endpoints failed: %v", group, err)
+		util.Log.Error("get group %s endpoints failed: %v", group, err)
 		return nil
 	} else if resp.Count != 0 {
 		endpoints := make([]string, 0, len(resp.Kvs))
@@ -104,7 +110,7 @@ func (Hub *ServiceHub) GetServiceEndpoints(group string) []string {
 			path := strings.Split(string(kv.Key), "/") // 只需要key，不需要value
 			endpoints = append(endpoints, path[len(path)-1])
 		}
-		util.Log.Printf("now the %s group has endpoints: %v", group, endpoints)
+		util.Log.Info("now the %s group has endpoints: %v", group, endpoints)
 		return endpoints
 	} else {
 		return nil
@@ -132,7 +138,7 @@ func (Hub *ServiceHub) addIndexGroup() int {
 	}
 	defer func() {
 		if err := lock.Release(); err != nil {
-			util.Log.Fatalf("failed to release lock: %v", err)
+			util.Log.Fatal("failed to release lock: %v", err)
 		}
 	}()
 
@@ -151,13 +157,13 @@ func (Hub *ServiceHub) addIndexGroup() int {
 			count, err = strconv.Atoi(string(value))
 		}
 		if err != nil {
-			util.Log.Printf("failed to convert value to int: %v", err)
+			util.Log.Error("failed to convert value to int: %v", err)
 			return 0
 		}
 		count++
 		_, err = Hub.client.Put(timeoutCtx, key, strconv.Itoa(count))
 		if err != nil {
-			util.Log.Printf("failed to put updated value to etcd: %v", err)
+			util.Log.Error("failed to put updated value to etcd: %v", err)
 			return 0
 		}
 		return count
@@ -176,7 +182,7 @@ func (Hub *ServiceHub) subIndexGroup() {
 	}
 	defer func() {
 		if err := lock.Release(); err != nil {
-			util.Log.Fatalf("failed to release lock: %v", err)
+			util.Log.Error("failed to release lock: %v", err)
 		}
 	}()
 
@@ -188,7 +194,7 @@ func (Hub *ServiceHub) subIndexGroup() {
 		value := res.Kvs[0].Value
 		count, err := strconv.Atoi(string(value))
 		if err != nil {
-			util.Log.Printf("failed to convert value to int: %v", err)
+			util.Log.Error("failed to convert value to int: %v", err)
 			return
 		}
 		count--
@@ -198,7 +204,7 @@ func (Hub *ServiceHub) subIndexGroup() {
 		}
 		_, err = Hub.client.Put(timeoutCtx, key, strconv.Itoa(count))
 		if err != nil {
-			util.Log.Printf("failed to put updated value to etcd: %v", err)
+			util.Log.Error("failed to put updated value to etcd: %v", err)
 			return
 		}
 		return
@@ -216,7 +222,7 @@ func (Hub *ServiceHub) CountIndexGroup() int {
 	}
 	defer func() {
 		if err := lock.Release(); err != nil {
-			util.Log.Fatalf("failed to release lock: %v", err)
+			util.Log.Error("failed to release lock: %v", err)
 		}
 	}()
 
@@ -229,7 +235,7 @@ func (Hub *ServiceHub) CountIndexGroup() int {
 			value := res.Kvs[0].Value
 			count, err := strconv.Atoi(string(value))
 			if err != nil {
-				util.Log.Printf("failed to convert value to int: %v", err)
+				util.Log.Error("failed to convert value to int: %v", err)
 				return 0
 			}
 			return count

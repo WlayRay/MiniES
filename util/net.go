@@ -27,7 +27,7 @@ func GetLocalIP() (ipv4 string, err error) {
 					// 跳过IPV6
 					if ipNet.IP.To4() != nil {
 						ipv4 = ipNet.IP.String()
-						Log.Printf("found local IP: %s", ipv4)
+						Log.Info("found local IP: %s", ipv4)
 						return
 					}
 				}

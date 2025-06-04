@@ -29,7 +29,7 @@ func GrpcIndexerInit() {
 	service.RegisterIndexServiceServer(server, indexService)
 	if err := indexService.Register(port); err != nil {
 		_ = indexService.Close()
-		util.Log.Fatalf("failed to register: %v", err)
+		util.Log.Panic("failed to register: %v", err)
 	}
 
 	if rebuildIndex {
@@ -41,7 +41,7 @@ func GrpcIndexerInit() {
 	err = server.Serve(lis)
 	if err != nil {
 		_ = indexService.Close()
-		util.Log.Fatalf("failed to serve: %v", err)
+		util.Log.Fatal("failed to serve: %v", err)
 	}
 }
 

@@ -13,11 +13,11 @@ import (
 )
 
 type IServiceHub interface {
-	Register(group, endpoint string, leaseID etcdv3.LeaseID) (etcdv3.LeaseID, error) // 注册服务
-	UnRegister(group, endpoint string) error                                         // 注销服务
-	GetServiceEndpoints(group string) []string                                       // 服务发现
-	GetServiceEndpoint(group string) string                                          // 根据负载均衡获取一台服务的endpoint
-	Close()                                                                          // 关闭etcd连接
+	Register(group, endpoint string) error     // 注册服务
+	UnRegister(group, endpoint string) error   // 注销服务
+	GetServiceEndpoints(group string) []string // 服务发现
+	GetServiceEndpoint(group string) string    // 根据负载均衡获取一台服务的endpoint
+	Close()                                    // 关闭etcd连接
 }
 
 // 代理模式，对ServiceHub做一层代理，提供缓存和限流保护
@@ -54,16 +54,16 @@ func (proxy *ServiceHubProxy) watchEndpointsOfGroup(group string) {
 
 	prefix := strings.TrimRight(ServiceRootPath, "/") + indexName + "/" + group + "/"
 	watchChan := proxy.client.Watch(context.Background(), prefix, etcdv3.WithPrefix())
-	util.Log.Printf("watch group: %s", group)
+	util.Log.Info("watch group: %s", group)
 
 	go func() {
 		for response := range watchChan {
 			for _, event := range response.Events {
-				util.Log.Printf("etcd event type: %s", event.Type)
+				util.Log.Debug("etcd event type: %s", event.Type)
 
 				path := strings.Split(string(event.Kv.Key), "/")
 				if len(path) < 3 {
-					util.Log.Printf("invalid key format: %s", event.Kv.Key)
+					util.Log.Error("invalid key format: %s", event.Kv.Key)
 					continue
 				}
 				group := path[len(path)-2]
@@ -80,7 +80,7 @@ func (proxy *ServiceHubProxy) watchEndpointsOfGroup(group string) {
 
 func (proxy *ServiceHubProxy) GetServiceEndpoints(group string) []string {
 	if !proxy.limiter.Allow() {
-		util.Log.Printf("rate limit exceeded for group: %s", group)
+		util.Log.Error("rate limit exceeded for group: %s", group)
 	}
 
 	proxy.watchEndpointsOfGroup(group)

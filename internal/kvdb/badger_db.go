@@ -50,9 +50,9 @@ func (s *Badger) CheckAndGC() {
 	}
 	lsmSize2, vlogSize2 := s.db.Size()
 	if vlogSize2 < vlogSize1 {
-		util.Log.Printf("badger before GC, LSM %d, vlog %d. after GC, LSM %d, vlog %d", lsmSize1, vlogSize1, lsmSize2, vlogSize2)
+		util.Log.Info("badger before GC, LSM %d, vlog %d. after GC, LSM %d, vlog %d", lsmSize1, vlogSize1, lsmSize2, vlogSize2)
 	} else {
-		util.Log.Printf("collect zero garbage")
+		util.Log.Info("collect zero garbage")
 	}
 }
 

@@ -85,7 +85,7 @@ func BuildIndexFromCSVFile(csvFile string, indexer service.IIndexer, totalShards
 		progress++
 		// util.Log.Printf("add %d documents to index currently", progress)
 	}
-	util.Log.Printf("add %d documents to index totally", progress)
+	util.Log.Info("add %d documents to index totally", progress)
 }
 
 func AddVideoToIndex(video *BiliBiliVideo, indexer service.IIndexer) {

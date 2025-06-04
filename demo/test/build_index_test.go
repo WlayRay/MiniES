@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	dbType  = kvdb.BOLT
+	dbType  = kvdb.BADGER
 	dbPath  = util.RootPath + "data/local_db/video_bolt"
 	indexer *service.Indexer
 )

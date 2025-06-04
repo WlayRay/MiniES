@@ -43,7 +43,7 @@ func (w *Worker) GetId() uint64 {
 	defer w.mu.Unlock()
 
 	// 获取生成时的时间戳
-	now := uint64(time.Now().UnixNano() / 1e6) // 纳秒转毫秒
+	now := uint64(float64(time.Now().UnixMilli()))
 	if w.timestamp == now {
 		w.number++
 

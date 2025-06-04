@@ -80,7 +80,7 @@ func (KeywordAuthorRecaller) Recall(ctx *infrastructure.VideoSearchContext) []*i
 		if err := proto.Unmarshal(doc.Bytes, &video); err == nil {
 			videos = append(videos, &video)
 		} else {
-			util.Log.Printf("unmarshal failed: %v", err)
+			util.Log.Error("unmarshal failed: %v", err)
 		}
 	}
 	return videos

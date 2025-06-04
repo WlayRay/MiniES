@@ -3,7 +3,9 @@ package service
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/WlayRay/ElectricSearch/internal/kvdb"
 	reverseindex "github.com/WlayRay/ElectricSearch/internal/reverse_index"
@@ -21,13 +23,6 @@ type Indexer struct {
 }
 
 func (indexer *Indexer) Init(DocNumEstimate int, dbtype int, DataDir string) error {
-	db, err := kvdb.GetKeyValueDB(dbtype, DataDir)
-	if err != nil {
-		return err
-	}
-	indexer.forwardIndex = db
-	indexer.reverseIndex = reverseindex.NewSkipListReverseIndex(DocNumEstimate)
-
 	// 通过对本机IP哈希生成雪花算法的workerId，可保证workerId唯一
 	ip, _ := util.GetLocalIP()
 	workerId := uint64(farm.Hash64WithSeed([]byte(ip), 0)) % 1023
@@ -36,9 +31,18 @@ func (indexer *Indexer) Init(DocNumEstimate int, dbtype int, DataDir string) err
 		panic(err)
 	}
 	indexer.worker = worker
+
+	db, err := kvdb.GetKeyValueDB(dbtype, fmt.Sprintf("%s/%d%d", DataDir, time.Now().Year(), time.Now().Weekday()))
+	if err != nil {
+		return err
+	}
+	indexer.forwardIndex = db
+	indexer.reverseIndex = reverseindex.NewSkipListReverseIndex(DocNumEstimate)
+
 	return nil
 }
 
+// Close 关闭正排索引存储连接
 func (indexer *Indexer) Close() error {
 	return indexer.forwardIndex.Close()
 }
@@ -51,13 +55,13 @@ func (indexer *Indexer) LoadFromIndexFile() int {
 		var doc types.Document
 		err := decoder.Decode(&doc)
 		if err != nil {
-			util.Log.Printf("Decode error: %v", err)
+			util.Log.Error("Decode error: %v", err)
 			return nil
 		}
 		indexer.reverseIndex.Add(doc)
 		return err
 	})
-	util.Log.Printf("Load %d data from forward index: %s", n, indexer.forwardIndex.GetDbPath())
+	util.Log.Debug("Load %d data from forward index: %s", n, indexer.forwardIndex.GetDbPath())
 	return int(n)
 }
 
@@ -97,7 +101,7 @@ func (indexer *Indexer) DeleteDoc(docId string) int {
 			var doc types.Document
 			err := decoder.Decode(&doc)
 			if err != nil {
-				util.Log.Printf("Decode error: %v", err)
+				util.Log.Error("Decode error: %v", err)
 			} else {
 				// 从倒排索引上删除
 				for _, keyword := range doc.Keywords {
@@ -126,7 +130,7 @@ func (indexer *Indexer) Search(querys *types.TermQuery, onFlag, offFlag uint64, 
 	}
 	docs, err := indexer.forwardIndex.BatchGet(keys)
 	if err != nil {
-		util.Log.Printf("Search from forward index error: %v", err)
+		util.Log.Error("Search from forward index error: %v", err)
 	}
 
 	results := make([]*types.Document, 0, len(docs))
@@ -139,7 +143,7 @@ func (indexer *Indexer) Search(querys *types.TermQuery, onFlag, offFlag uint64, 
 			var doc types.Document //一定要把接收每个文档的变量定义放在循环内
 			err := decoder.Decode(&doc)
 			if err != nil {
-				util.Log.Printf("Decode error: %v", err)
+				util.Log.Error("Decode error: %v", err)
 				continue
 			} else {
 				results = append(results, &doc)

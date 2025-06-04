@@ -1,7 +1,6 @@
 package servicetest
 
 import (
-	"fmt"
 	"net"
 	"strconv"
 	"testing"
@@ -9,19 +8,18 @@ import (
 
 	"github.com/WlayRay/ElectricSearch/service"
 	"github.com/WlayRay/ElectricSearch/types"
+	"github.com/WlayRay/ElectricSearch/util"
 
 	"google.golang.org/grpc"
 )
 
 var (
-	workPorts   = []int{49658, 52791, 50660} //在一台机器上启多个worker，实际中是一台机器上启一个worker
+	workPorts   = []int{6689} //在一台机器上启多个worker，实际中是一台机器上启一个worker
 	etcdServers = []string{"127.0.0.1:2379"}
-	workers     []*service.IndexServiceWorker
 )
 
-func StartWorkers() {
-	workers = make([]*service.IndexServiceWorker, 0, len(workPorts))
-	for i, port := range workPorts {
+func StartWorkers() (closeFns []func() error) {
+	for _, port := range workPorts {
 		// 监听本地端口
 		lis, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
 		if err != nil {
@@ -30,35 +28,55 @@ func StartWorkers() {
 
 		server := grpc.NewServer()
 		indexServiceWorker := new(service.IndexServiceWorker)
-		indexServiceWorker.Init(etcdServers, i, 3)
+		if err = indexServiceWorker.Init(etcdServers, 0, 3); err != nil {
+			panic(err)
+		}
 		indexServiceWorker.Indexer.LoadFromIndexFile() //从文件中加载索引数据
 		// 注册服务的具体实现
 		service.RegisterIndexServiceServer(server, indexServiceWorker)
-		indexServiceWorker.Register(port)
+		if err = indexServiceWorker.Register(port); err != nil {
+			panic(err)
+		}
 		go func(port int) {
 			// 启动服务
-			fmt.Printf("start grpc server on port %d\n", port)
-			err = server.Serve(lis) //Serve会一直阻塞，所以放到一个协程里异步执行
-			if err != nil {
-				indexServiceWorker.Close()
-				fmt.Printf("start grpc server on port %d failed: %s\n", port, err)
-			} else {
-				workers = append(workers, indexServiceWorker)
+			util.Log.Info("start grpc server on port %d\n", port)
+			//Serve会一直阻塞，所以放到一个协程里异步执行
+			if err = server.Serve(lis); err != nil {
+				_ = indexServiceWorker.Close()
+				util.Log.Error("start grpc server on port %d failed: %s\n", port, err)
 			}
 		}(port)
+		closeFns = append(closeFns, func() error {
+			return indexServiceWorker.Close() // 关闭索引服务
+		})
 	}
-}
-
-func StopWorkers() {
-	for _, worker := range workers {
-		worker.Close()
-	}
+	return
 }
 
 func TestIndexCluster(t *testing.T) {
-	StartWorkers()
+	closeFns := StartWorkers()
+	defer func() {
+		if r := recover(); r != nil {
+			util.Log.Warn("recovered from panic: %v", r)
+			for _, closeFn := range closeFns {
+				if err := closeFn(); err != nil {
+					util.Log.Error("close worker failed: %s", err)
+				} else {
+					util.Log.Info("worker closed successfully")
+				}
+			}
+		}
+	}()
+	defer func() {
+		for _, closeFn := range closeFns {
+			if err := closeFn(); err != nil {
+				util.Log.Error("close worker failed: %s", err)
+			} else {
+				util.Log.Info("worker closed successfully")
+			}
+		}
+	}()
 	time.Sleep(3 * time.Second) //等所有worker都启动完毕
-	defer StopWorkers()
 
 	sentinel := service.NewSentinel(etcdServers)
 	//测试Add接口
@@ -75,48 +93,49 @@ func TestIndexCluster(t *testing.T) {
 		Keywords:    []*types.Keyword{{Field: "content", Word: "唐朝"}, {Field: "content", Word: "文物"}, {Field: "title", Word: book.Title}},
 		Bytes:       book.Serialize(),
 	}
-	n, err := sentinel.AddDoc(doc)
+	_, err := sentinel.AddDoc(doc)
 	if err != nil {
-		fmt.Println(err)
+		util.Log.Error("添加失败: %s", err)
 		t.Fail()
 	} else {
-		fmt.Printf("添加%d个doc\n", n)
+		count := sentinel.Count() // 获取当前索引的文档总数
+		util.Log.Debug("当前doc总数%d\n", count)
 	}
 	//测试Search接口
 	query := types.NewTermQuery("content", "文物")
 	query = query.And(types.NewTermQuery("content", "唐朝"))
 	docs := sentinel.Search(query, 0, 0, nil)
 	if err != nil {
-		fmt.Println(err)
+		util.Log.Error("检索失败: %s", err)
 		t.Fail()
 	} else {
 		docId := ""
 		if len(docs) == 0 {
-			fmt.Println("无搜索结果")
+			util.Log.Warn("无搜索结果")
 		} else {
 			for _, doc := range docs {
 				book := DeserializeBook(doc.Bytes) //检索的结果是二进流，需要自反序列化
 				if book != nil {
-					fmt.Printf("%s %s %s %s %.1f\n", doc.Id, book.ISBN, book.Title, book.Author, book.Price)
+					util.Log.Debug("%s %s %s %s %.1f\n", doc.Id, book.ISBN, book.Title, book.Author, book.Price)
 					docId = doc.Id
 				}
 			}
 		}
 		//测试Delete接口
 		if len(docId) > 0 {
-			n := sentinel.DeleteDoc(docId)
-			fmt.Printf("删除%d个doc\n", n)
+			_ = sentinel.DeleteDoc(docId)
 		}
 
 		//测试Search接口
 		docs := sentinel.Search(query, 0, 0, nil)
+		count := sentinel.Count() // 获取当前索引的文档总数
 		if len(docs) == 0 {
-			fmt.Println("无搜索结果")
+			util.Log.Debug("当前文档总数：%d，无搜索结果", count)
 		} else {
 			for _, doc := range docs {
 				book := DeserializeBook(doc.Bytes) //检索的结果是二进流，需要自反序列化
 				if book != nil {
-					fmt.Printf("%s %s %s %s %.1f\n", doc.Id, book.ISBN, book.Title, book.Author, book.Price)
+					util.Log.Debug("%s %s %s %s %.1f\n", doc.Id, book.ISBN, book.Title, book.Author, book.Price)
 				}
 			}
 		}

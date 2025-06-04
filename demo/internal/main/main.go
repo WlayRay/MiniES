@@ -35,7 +35,7 @@ func startGin() {
 	engine.POST("/up_search", handler.SearchByAuthor)
 
 	if err := engine.Run("0.0.0.0:" + "9000"); err != nil {
-		util.Log.Println("Server failed to start:", err)
+		util.Log.Panic("Server failed to start:", err)
 		return
 	}
 }
@@ -134,7 +134,7 @@ func init() {
 		panic("csvFilePath not found in ConfigMap!")
 	} else {
 		csvFilePath = util.RootPath + strings.Replace(fmt.Sprintf("%v", v), "\"", "", -1)
-		util.Log.Printf("csvFilePath: %s", csvFilePath)
+		util.Log.Debug("csvFilePath: %s", csvFilePath)
 	}
 
 	// 正排索引数据存放目录
@@ -148,13 +148,10 @@ func init() {
 	if v, ok := indexConfig["db-type"]; !ok {
 		panic("dbType not found in ConfigMap!")
 	} else {
-		switch fmt.Sprintf("%v", v) {
-		case "badger":
+		switch v.(string) {
+		default:
 			dbType = kvdb.BADGER
 			dbPath += "badger_db"
-		default:
-			dbType = kvdb.BOLT
-			dbPath += "bolt_db/bolt"
 		}
 	}
 
@@ -181,6 +178,6 @@ func init() {
 			endpoint = strings.Replace(endpoint, "\"", "", -1)
 			etcdEndpoints = append(etcdEndpoints, endpoint)
 		}
-		util.Log.Printf("etcdEndpoints: %v", etcdEndpoints)
+		util.Log.Debug("etcdEndpoints: %v", etcdEndpoints)
 	}
 }

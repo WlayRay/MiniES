@@ -2,6 +2,7 @@ package servicetest
 
 import (
 	"fmt"
+
 	"github.com/WlayRay/ElectricSearch/service"
 
 	// "fmt"
@@ -18,9 +19,9 @@ func TestGetServiceEndpointByProxy(t *testing.T) {
 
 	proxy := service.GetServiceHubProxy(etcdServers, 30, qps)
 
-	_, _ = proxy.Register(group, Endpoints[0], 0)
-	_, _ = proxy.Register(group, Endpoints[1], 0)
-	_, _ = proxy.Register(group, Endpoints[2], 0)
+	_ = proxy.Register(group, Endpoints[0])
+	_ = proxy.Register(group, Endpoints[1])
+	_ = proxy.Register(group, Endpoints[2])
 	defer func() {
 		if err := proxy.UnRegister(group, Endpoints[0]); err != nil {
 			fmt.Printf("unregister %s failed: %v\n", Endpoints[0], err)

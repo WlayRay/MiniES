@@ -19,17 +19,17 @@ func (tq *TermQuery) And(querys ...*TermQuery) *TermQuery {
 		return tq
 	}
 
-	array := make([]*TermQuery, 0, len(querys)+1)
+	must := make([]*TermQuery, 0, len(querys)+1)
 	if !tq.Empty() {
-		array = append(array, tq)
+		must = append(must, tq)
 	}
 
 	for _, query := range querys {
 		if !query.Empty() {
-			array = append(array, query)
+			must = append(must, query)
 		}
 	}
-	return &TermQuery{Must: array}
+	return &TermQuery{Must: must}
 }
 
 func (tq *TermQuery) Or(querys ...*TermQuery) *TermQuery {
@@ -37,17 +37,17 @@ func (tq *TermQuery) Or(querys ...*TermQuery) *TermQuery {
 		return tq
 	}
 
-	array := make([]*TermQuery, 0, len(querys)+1)
+	should := make([]*TermQuery, 0, len(querys)+1)
 	if !tq.Empty() {
-		array = append(array, tq)
+		should = append(should, tq)
 	}
 
 	for _, query := range querys {
 		if !query.Empty() {
-			array = append(array, query)
+			should = append(should, query)
 		}
 	}
-	return &TermQuery{Should: array}
+	return &TermQuery{Should: should}
 }
 
 func (tq TermQuery) ToString() string {

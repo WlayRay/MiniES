@@ -6,7 +6,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/WlayRay/ElectricSearch/internal/kvdb"
 	"github.com/WlayRay/ElectricSearch/types"
@@ -90,25 +89,13 @@ func (service *IndexServiceWorker) Init(etcdEndpoints []string, currentGroup, he
 		// 初始化正排索引使用的数据库类型
 		if v, ok := indexConfig["db-type"]; ok {
 			switch v {
-			case "bolt":
-				dbType = kvdb.BOLT
-				dbPath += "bolt_db/bolt"
 			default:
 				dbType = kvdb.BADGER
-				dbPath += "badger_db"
+				dbPath += "badger_db" + strconv.Itoa(currentGroup)
 			}
-		} else {
-			dbType = kvdb.BOLT
 		}
 
-		dbPath += "_" + strconv.Itoa(currentGroup)
-		if ip, err := util.GetLocalIP(); err == nil {
-			dbPath += "/" + ip
-			if port, ok := util.ConfigMap["server"].(map[string]any)["port"].(int); ok {
-				dbPath += strconv.Itoa(port)
-			}
-		}
-		util.Log.Println("db path:", dbPath)
+		util.Log.Debug("db path: %s", dbPath)
 	}
 	return service.Indexer.Init(docNumEstimate, dbType, dbPath)
 }
@@ -119,17 +106,17 @@ func (service *IndexServiceWorker) Register(servicePort int) error {
 		return fmt.Errorf("invalid listen port %d, should more than 1024", servicePort)
 	}
 
-	selfLocalIp, err := util.GetLocalIP()
-	if err != nil {
-		panic(err)
-	}
-	// selfLocalIp := "127.0.0.1" // 仅在本机器模拟分布式部署用
+	// selfLocalIp, err := util.GetLocalIP()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	selfLocalIp := "127.0.0.1" // 仅在本机器模拟分布式部署用
 	service.selfAddr = fmt.Sprintf("%s:%d", selfLocalIp, servicePort)
 
 	timeoutCtx, cancel := util.GetDefaultTimeoutContext()
 	defer cancel()
 
-	leaseId, err := service.Hub.Register(currentGroup, service.selfAddr, 0)
+	err := service.Hub.Register(currentGroup, service.selfAddr)
 	if err != nil {
 		return err
 	}
@@ -139,15 +126,9 @@ func (service *IndexServiceWorker) Register(servicePort int) error {
 			service.Hub.addIndexGroup()
 		}
 	} else {
-		util.Log.Printf("failed to get key %s: %v", ServiceRootPath+indexName+currentGroup, err)
+		util.Log.Error("failed to get group key %s: %v", ServiceRootPath+indexName+currentGroup, err)
+		return err
 	}
-
-	go func() {
-		for {
-			_, _ = service.Hub.Register(currentGroup, service.selfAddr, leaseId)
-			time.Sleep(time.Duration(service.Hub.heartRate)*time.Second - 100*time.Millisecond)
-		}
-	}()
 
 	return nil
 }
@@ -178,14 +159,16 @@ func (service *IndexServiceWorker) Count(ctx context.Context, request *CountRequ
 func (service *IndexServiceWorker) Close() error {
 	if service.Hub != nil {
 		if err := service.Hub.UnRegister(currentGroup, service.selfAddr); err == nil {
-			timeoutCtx, cancel := util.GetDefaultTimeoutContext()
+			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			if res, err := service.Hub.client.Get(timeoutCtx, ServiceRootPath+indexName+"/"+currentGroup, etcdv3.WithPrefix()); err == nil {
+			if res, err := service.Hub.client.Get(ctx, ServiceRootPath+indexName+"/"+currentGroup, etcdv3.WithPrefix()); err == nil {
 				if res != nil {
 					if res.Count == 0 {
 						service.Hub.subIndexGroup()
 					}
+				} else {
+					return err
 				}
 			}
 			service.Hub.Close()

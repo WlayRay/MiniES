@@ -9,8 +9,7 @@ import (
 )
 
 const (
-	BOLT = iota
-	BADGER
+	BADGER = iota
 )
 
 // 操作各类数据库的接口
@@ -40,19 +39,17 @@ func GetKeyValueDB(dbType int, path string) (IKeyValueDB, error) {
 		if err := os.MkdirAll(parentPath, os.ModePerm); err != nil {
 			return nil, err
 		} else {
-			util.Log.Printf("create dir: %s", parentPath)
+			util.Log.Info("create dir: %s", parentPath)
 		}
 	} else if !info.IsDir() {
 		return nil, fmt.Errorf("%s is not a directory", parentPath)
 	} else {
-		util.Log.Printf("parent dir: %s", parentPath)
+		util.Log.Info("parent dir: %s", parentPath)
 	}
 
 	var db IKeyValueDB
 
 	switch dbType {
-	case BOLT:
-		db = new(Bolt).WithDataPath(path).WithBucket("github.com/WlayRay/ElectricSearch")
 	default: //默认使用badger
 		db = new(Badger).WithDataPath(path)
 	}
