@@ -41,7 +41,7 @@ func (sentinel *Sentinel) GetGrpcConn(endpoint string) *grpc.ClientConn {
 		conn := v.(*grpc.ClientConn)
 		// 检查连接状态是否为Ready
 		if conn.GetState() != connectivity.Ready {
-			util.Log.Error("sentinel %s is not ready (state: %v), close it", endpoint, conn.GetState())
+			util.Error("sentinel %s is not ready (state: %v), close it", endpoint, conn.GetState())
 			_ = conn.Close()
 			sentinel.connPool.Delete(endpoint)
 		} else {
@@ -54,10 +54,10 @@ func (sentinel *Sentinel) GetGrpcConn(endpoint string) *grpc.ClientConn {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		util.Log.Error("dial %s failed: %s", endpoint, err)
+		util.Error("dial %s failed: %s", endpoint, err)
 		return nil
 	}
-	util.Log.Info("successfully connected to grpc server %s", endpoint)
+	util.Info("successfully connected to grpc server %s", endpoint)
 	sentinel.connPool.Store(endpoint, conn)
 	return conn
 }
@@ -80,7 +80,7 @@ func (sentinel *Sentinel) AddDoc(doc types.Document) (int, error) {
 				client := NewIndexServiceClient(conn)
 				affected, err := client.AddDoc(context.Background(), &doc)
 				if err != nil {
-					util.Log.Error("add doc %s to worker %s failed: %s", doc.Id, endpoint, err)
+					util.Error("add doc %s to worker %s failed: %s", doc.Id, endpoint, err)
 				} else {
 					atomic.AddUint32(&total, uint32(affected.Count))
 				}
@@ -90,7 +90,7 @@ func (sentinel *Sentinel) AddDoc(doc types.Document) (int, error) {
 	}
 
 	wg.Wait()
-	util.Log.Debug("add doc %s to workers %v, affected %d", doc.Id, endpoints, total)
+	util.Debug("add doc %s to workers %v, affected %d", doc.Id, endpoints, total)
 	return int(total), nil
 }
 
@@ -112,7 +112,7 @@ func (sentinel *Sentinel) DeleteDoc(docId string) int {
 				client := NewIndexServiceClient(conn)
 				affected, err := client.DeleteDoc(context.Background(), &DocId{docId})
 				if err != nil {
-					util.Log.Error("delete doc %s from worker %s failed: %s", docId, endpoint, err)
+					util.Error("delete doc %s from worker %s failed: %s", docId, endpoint, err)
 				} else if affected.Count > 0 {
 					atomic.AddUint32(&total, affected.Count)
 				}
@@ -121,7 +121,7 @@ func (sentinel *Sentinel) DeleteDoc(docId string) int {
 	}
 
 	wg.Wait()
-	util.Log.Debug("add delete %s to workers %v, affected %d", docId, endpoints, total)
+	util.Debug("add delete %s to workers %v, affected %d", docId, endpoints, total)
 	return int(total)
 }
 
@@ -158,7 +158,7 @@ func (sentinel *Sentinel) Search(querys *types.TermQuery, onFlag, offFlag uint64
 			defer producerWg.Done()
 			conn := sentinel.GetGrpcConn(endpoint)
 			if conn == nil {
-				util.Log.Error("failed to get connection for endpoint %s", endpoint)
+				util.Error("failed to get connection for endpoint %s", endpoint)
 				return
 			}
 
@@ -171,7 +171,7 @@ func (sentinel *Sentinel) Search(querys *types.TermQuery, onFlag, offFlag uint64
 			})
 
 			if err != nil {
-				util.Log.Error("search from worker %s failed: %s", endpoint, err)
+				util.Error("search from worker %s failed: %s", endpoint, err)
 				return
 			}
 
@@ -247,14 +247,14 @@ func (sentinel *Sentinel) Count() int {
 			defer producerWg.Done()
 			conn := sentinel.GetGrpcConn(endpoint)
 			if conn == nil {
-				util.Log.Error("failed to get connection for endpoint %s", endpoint)
+				util.Error("failed to get connection for endpoint %s", endpoint)
 				return
 			}
 
 			client := NewIndexServiceClient(conn)
 			result, err := client.Count(ctx, &CountRequest{})
 			if err != nil {
-				util.Log.Error("count from worker %s failed: %s", endpoint, err)
+				util.Error("count from worker %s failed: %s", endpoint, err)
 				return
 			}
 
@@ -312,7 +312,7 @@ func (*Sentinel) getGroupCount() int {
 
 	etcdConn, err := etcd.GetEtcdClient(etcdServers)
 	if err != nil {
-		util.Log.Fatal("get etcd client failed: %s", err)
+		util.Fatal("get etcd client failed: %s", err)
 	}
 
 	timeoutCtx, cancel := util.GetDefaultTimeoutContext()

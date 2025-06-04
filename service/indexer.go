@@ -55,13 +55,13 @@ func (indexer *Indexer) LoadFromIndexFile() int {
 		var doc types.Document
 		err := decoder.Decode(&doc)
 		if err != nil {
-			util.Log.Error("Decode error: %v", err)
+			util.Error("Decode error: %v", err)
 			return nil
 		}
 		indexer.reverseIndex.Add(doc)
 		return err
 	})
-	util.Log.Debug("Load %d data from forward index: %s", n, indexer.forwardIndex.GetDbPath())
+	util.Debug("Load %d data from forward index: %s", n, indexer.forwardIndex.GetDbPath())
 	return int(n)
 }
 
@@ -101,7 +101,7 @@ func (indexer *Indexer) DeleteDoc(docId string) int {
 			var doc types.Document
 			err := decoder.Decode(&doc)
 			if err != nil {
-				util.Log.Error("Decode error: %v", err)
+				util.Error("Decode error: %v", err)
 			} else {
 				// 从倒排索引上删除
 				for _, keyword := range doc.Keywords {
@@ -110,7 +110,7 @@ func (indexer *Indexer) DeleteDoc(docId string) int {
 			}
 		}
 	} else {
-		//util.Log.Printf("DeleteDoc error: %v", err)
+		//util.Printf("DeleteDoc error: %v", err)
 	}
 	// 从正排索引上删除
 	_ = indexer.forwardIndex.Delete(forwardKey)
@@ -130,7 +130,7 @@ func (indexer *Indexer) Search(querys *types.TermQuery, onFlag, offFlag uint64, 
 	}
 	docs, err := indexer.forwardIndex.BatchGet(keys)
 	if err != nil {
-		util.Log.Error("Search from forward index error: %v", err)
+		util.Error("Search from forward index error: %v", err)
 	}
 
 	results := make([]*types.Document, 0, len(docs))
@@ -143,7 +143,7 @@ func (indexer *Indexer) Search(querys *types.TermQuery, onFlag, offFlag uint64, 
 			var doc types.Document //一定要把接收每个文档的变量定义放在循环内
 			err := decoder.Decode(&doc)
 			if err != nil {
-				util.Log.Error("Decode error: %v", err)
+				util.Error("Decode error: %v", err)
 				continue
 			} else {
 				results = append(results, &doc)

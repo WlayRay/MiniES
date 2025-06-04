@@ -36,7 +36,7 @@ func startGin() {
 	engine.POST("/up_search", handler.SearchByAuthor)
 
 	if err := engine.Run("0.0.0.0:" + "9000"); err != nil {
-		util.Log.Panic("Server failed to start:", err)
+		util.Panic("Server failed to start:", err)
 		return
 	}
 }
@@ -135,7 +135,7 @@ func init() {
 		panic("csvFilePath not found in ConfigMap!")
 	} else {
 		csvFilePath = config.RootPath + strings.Replace(fmt.Sprintf("%v", v), "\"", "", -1)
-		util.Log.Debug("csvFilePath: %s", csvFilePath)
+		util.Debug("csvFilePath: %s", csvFilePath)
 	}
 
 	// 正排索引数据存放目录
@@ -179,6 +179,6 @@ func init() {
 			endpoint = strings.Replace(endpoint, "\"", "", -1)
 			etcdEndpoints = append(etcdEndpoints, endpoint)
 		}
-		util.Log.Debug("etcdEndpoints: %v", etcdEndpoints)
+		util.Debug("etcdEndpoints: %v", etcdEndpoints)
 	}
 }

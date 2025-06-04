@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	workPorts   = []int{6689} //在一台机器上启多个worker，实际中是一台机器上启一个worker
+	workPorts   = []int{6666} //在一台机器上启多个worker，实际中是一台机器上启一个worker
 	etcdServers = []string{"127.0.0.1:2379"}
 )
 
@@ -39,11 +39,11 @@ func StartWorkers() (closeFns []func() error) {
 		}
 		go func(port int) {
 			// 启动服务
-			util.Log.Info("start grpc server on port %d\n", port)
+			util.Info("start grpc server on port %d\n", port)
 			//Serve会一直阻塞，所以放到一个协程里异步执行
 			if err = server.Serve(lis); err != nil {
 				_ = indexServiceWorker.Close()
-				util.Log.Error("start grpc server on port %d failed: %s\n", port, err)
+				util.Error("start grpc server on port %d failed: %s\n", port, err)
 			}
 		}(port)
 		closeFns = append(closeFns, func() error {
@@ -57,12 +57,12 @@ func TestIndexCluster(t *testing.T) {
 	closeFns := StartWorkers()
 	defer func() {
 		if r := recover(); r != nil {
-			util.Log.Warn("recovered from panic: %v", r)
+			util.Warn("recovered from panic: %v", r)
 			for _, closeFn := range closeFns {
 				if err := closeFn(); err != nil {
-					util.Log.Error("close worker failed: %s", err)
+					util.Error("close worker failed: %s", err)
 				} else {
-					util.Log.Info("worker closed successfully")
+					util.Info("worker closed successfully")
 				}
 			}
 		}
@@ -70,9 +70,9 @@ func TestIndexCluster(t *testing.T) {
 	defer func() {
 		for _, closeFn := range closeFns {
 			if err := closeFn(); err != nil {
-				util.Log.Error("close worker failed: %s", err)
+				util.Error("close worker failed: %s", err)
 			} else {
-				util.Log.Info("worker closed successfully")
+				util.Info("worker closed successfully")
 			}
 		}
 	}()
@@ -95,28 +95,28 @@ func TestIndexCluster(t *testing.T) {
 	}
 	_, err := sentinel.AddDoc(doc)
 	if err != nil {
-		util.Log.Error("添加失败: %s", err)
+		util.Error("添加失败: %s", err)
 		t.Fail()
 	} else {
 		count := sentinel.Count() // 获取当前索引的文档总数
-		util.Log.Debug("当前doc总数%d\n", count)
+		util.Debug("当前doc总数%d\n", count)
 	}
 	//测试Search接口
 	query := types.NewTermQuery("content", "文物")
 	query = query.And(types.NewTermQuery("content", "唐朝"))
 	docs := sentinel.Search(query, 0, 0, nil)
 	if err != nil {
-		util.Log.Error("检索失败: %s", err)
+		util.Error("检索失败: %s", err)
 		t.Fail()
 	} else {
 		docId := ""
 		if len(docs) == 0 {
-			util.Log.Warn("无搜索结果")
+			util.Warn("无搜索结果")
 		} else {
 			for _, doc := range docs {
 				book := DeserializeBook(doc.Bytes) //检索的结果是二进流，需要自反序列化
 				if book != nil {
-					util.Log.Debug("%s %s %s %s %.1f\n", doc.Id, book.ISBN, book.Title, book.Author, book.Price)
+					util.Debug("%s %s %s %s %.1f\n", doc.Id, book.ISBN, book.Title, book.Author, book.Price)
 					docId = doc.Id
 				}
 			}
@@ -130,12 +130,12 @@ func TestIndexCluster(t *testing.T) {
 		docs := sentinel.Search(query, 0, 0, nil)
 		count := sentinel.Count() // 获取当前索引的文档总数
 		if len(docs) == 0 {
-			util.Log.Debug("当前文档总数：%d，无搜索结果", count)
+			util.Debug("当前文档总数：%d，无搜索结果", count)
 		} else {
 			for _, doc := range docs {
 				book := DeserializeBook(doc.Bytes) //检索的结果是二进流，需要自反序列化
 				if book != nil {
-					util.Log.Debug("%s %s %s %s %.1f\n", doc.Id, book.ISBN, book.Title, book.Author, book.Price)
+					util.Debug("%s %s %s %s %.1f\n", doc.Id, book.ISBN, book.Title, book.Author, book.Price)
 				}
 			}
 		}

@@ -48,7 +48,7 @@ func (search *VideoSearcher) Recall(searchCtx *infrastructure.VideoSearchContext
 			defer wg.Done()
 			rule := reflect.TypeOf(recaller).Name()
 			result := recaller.Recall(searchCtx)
-			util.Log.Debug("recall %d docs by %s", len(result), rule)
+			util.Debug("recall %d docs by %s", len(result), rule)
 			for _, video := range result {
 				collection <- video
 			}
@@ -86,11 +86,11 @@ func (search *VideoSearcher) Search(searchCtx *infrastructure.VideoSearchContext
 	t1 := time.Now()
 	search.Recall(searchCtx)
 	t2 := time.Now()
-	util.Log.Debug("recall %d docs in %d ms", len(searchCtx.Videos), t2.Sub(t1).Milliseconds())
+	util.Debug("recall %d docs in %d ms", len(searchCtx.Videos), t2.Sub(t1).Milliseconds())
 
 	search.Filter(searchCtx)
 	t3 := time.Now()
-	util.Log.Debug("after filter remain %d docs in %d ms", len(searchCtx.Videos), t3.Sub(t2).Milliseconds())
+	util.Debug("after filter remain %d docs in %d ms", len(searchCtx.Videos), t3.Sub(t2).Milliseconds())
 
 	return searchCtx.Videos
 }

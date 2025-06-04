@@ -54,16 +54,16 @@ func (proxy *ServiceHubProxy) watchEndpointsOfGroup(group string) {
 
 	prefix := strings.TrimRight(ServiceRootPath, "/") + indexName + "/" + group + "/"
 	watchChan := proxy.client.Watch(context.Background(), prefix, etcdv3.WithPrefix())
-	util.Log.Info("watch group: %s", group)
+	util.Info("watch group: %s", group)
 
 	go func() {
 		for response := range watchChan {
 			for _, event := range response.Events {
-				util.Log.Debug("etcd event type: %s", event.Type)
+				util.Debug("etcd event type: %s", event.Type)
 
 				path := strings.Split(string(event.Kv.Key), "/")
 				if len(path) < 3 {
-					util.Log.Error("invalid key format: %s", event.Kv.Key)
+					util.Error("invalid key format: %s", event.Kv.Key)
 					continue
 				}
 				group := path[len(path)-2]
@@ -80,7 +80,7 @@ func (proxy *ServiceHubProxy) watchEndpointsOfGroup(group string) {
 
 func (proxy *ServiceHubProxy) GetServiceEndpoints(group string) []string {
 	if !proxy.limiter.Allow() {
-		util.Log.Error("rate limit exceeded for group: %s", group)
+		util.Error("rate limit exceeded for group: %s", group)
 	}
 
 	proxy.watchEndpointsOfGroup(group)

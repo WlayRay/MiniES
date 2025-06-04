@@ -9,8 +9,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/WlayRay/ElectricSearch/config"
 )
 
 // Level 日志级别
@@ -73,15 +76,41 @@ type Options struct {
 }
 
 func init() {
-	// TODO 从配置文件中获取初始化参数
-	Log, _ = newLogger(Options{
-		Level:     DEBUG,
-		FilePath:  "",
-		MaxSize:   1024 * 1024 * 100, // 100MB
-		ToConsole: true,
-		Format:    "text",
-	})
-	// 设置全局日志记录器
+	logConfigMap := config.ConfigMap["log"].(map[string]any)
+	level := logConfigMap["level"].(string)
+	options := Options{}
+	switch strings.ToUpper(level) {
+	case "DEBUG":
+		options.Level = DEBUG
+	case "INFO":
+		options.Level = INFO
+	case "WARN":
+		options.Level = WARN
+	case "ERROR":
+		options.Level = ERROR
+	default:
+		options.Level = INFO // 默认级别为INFO
+	}
+	if filePath, ok := logConfigMap["file-path"].(string); ok {
+		options.FilePath = filePath
+	}
+	if maxSize, ok := logConfigMap["max-size"].(int); ok {
+		options.MaxSize = int64(maxSize)
+	}
+	if toConsole, ok := logConfigMap["to-console"].(bool); ok {
+		options.ToConsole = toConsole
+	}
+	if format, ok := logConfigMap["format"].(string); ok {
+		options.Format = format
+	} else {
+		options.Format = "text"
+	}
+
+	var err error
+	Log, err = newLogger(options)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // newLogger 创建新的日志记录器
@@ -94,12 +123,23 @@ func newLogger(opts Options) (*Logger, error) {
 	// 如果指定了文件路径，创建或打开日志文件
 	if opts.FilePath != "" {
 		// 确保目录存在
-		dir := filepath.Dir(opts.FilePath)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(opts.FilePath, 0755); err != nil {
 			return nil, fmt.Errorf("创建日志目录失败: %v", err)
 		}
 
-		// 打开日志文件
+		// 创建并打开日志文件
+		if opts.FilePath[len(opts.FilePath)-1] != '/' && opts.FilePath[len(opts.FilePath)-1] != '\\' {
+			opts.FilePath += string(filepath.Separator)
+		}
+		opts.FilePath = fmt.Sprintf("%selectric_search%d_%02d", opts.FilePath, time.Now().Year(), time.Now().Month())
+		switch opts.Format {
+		case "json":
+			opts.FilePath = opts.FilePath + ".json"
+		case "text":
+			opts.FilePath = opts.FilePath + ".log"
+		default:
+			return nil, fmt.Errorf("无效的日志格式: %s", opts.Format)
+		}
 		logFile, err = os.OpenFile(opts.FilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
 			return nil, fmt.Errorf("打开日志文件失败: %v", err)
@@ -278,55 +318,55 @@ func (l *Logger) logJSON(level Level, format string, args ...any) {
 }
 
 // Debug 输出Debug级别日志
-func (l *Logger) Debug(format string, args ...any) {
-	if l.format == "json" {
-		l.logJSON(DEBUG, format, args...)
+func Debug(format string, args ...any) {
+	if Log.format == "json" {
+		Log.logJSON(DEBUG, format, args...)
 	} else {
-		l.log(DEBUG, format, args...)
+		Log.log(DEBUG, format, args...)
 	}
 }
 
 // Info 输出Info级别日志
-func (l *Logger) Info(format string, args ...any) {
-	if l.format == "json" {
-		l.logJSON(INFO, format, args...)
+func Info(format string, args ...any) {
+	if Log.format == "json" {
+		Log.logJSON(INFO, format, args...)
 	} else {
-		l.log(INFO, format, args...)
+		Log.log(INFO, format, args...)
 	}
 }
 
 // Warn 输出Warn级别日志
-func (l *Logger) Warn(format string, args ...any) {
-	if l.format == "json" {
-		l.logJSON(WARN, format, args...)
+func Warn(format string, args ...any) {
+	if Log.format == "json" {
+		Log.logJSON(WARN, format, args...)
 	} else {
-		l.log(WARN, format, args...)
+		Log.log(WARN, format, args...)
 	}
 }
 
 // Error 输出Error级别日志
-func (l *Logger) Error(format string, args ...any) {
-	if l.format == "json" {
-		l.logJSON(ERROR, format, args...)
+func Error(format string, args ...any) {
+	if Log.format == "json" {
+		Log.logJSON(ERROR, format, args...)
 	} else {
-		l.log(ERROR, format, args...)
+		Log.log(ERROR, format, args...)
 	}
 }
 
 // Fatal 输出Fatal级别日志并退出程序
-func (l *Logger) Fatal(format string, args ...any) {
-	if l.format == "json" {
-		l.logJSON(FATAL, format, args...)
+func Fatal(format string, args ...any) {
+	if Log.format == "json" {
+		Log.logJSON(FATAL, format, args...)
 	} else {
-		l.log(FATAL, format, args...)
+		Log.log(FATAL, format, args...)
 	}
 }
 
 // Panic 输出Panic级别日志并触发panic
-func (l *Logger) Panic(format string, args ...any) {
-	if l.format == "json" {
-		l.logJSON(PANIC, format, args...)
+func Panic(format string, args ...any) {
+	if Log.format == "json" {
+		Log.logJSON(PANIC, format, args...)
 	} else {
-		l.log(PANIC, format, args...)
+		Log.log(PANIC, format, args...)
 	}
 }

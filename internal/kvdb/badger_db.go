@@ -50,9 +50,9 @@ func (s *Badger) CheckAndGC() {
 	}
 	lsmSize2, vlogSize2 := s.db.Size()
 	if vlogSize2 < vlogSize1 {
-		util.Log.Info("badger before GC, LSM %d, vlog %d. after GC, LSM %d, vlog %d", lsmSize1, vlogSize1, lsmSize2, vlogSize2)
+		util.Info("badger before GC, LSM %d, vlog %d. after GC, LSM %d, vlog %d", lsmSize1, vlogSize1, lsmSize2, vlogSize2)
 	} else {
-		util.Log.Info("collect zero garbage")
+		util.Info("collect zero garbage")
 	}
 }
 
@@ -75,7 +75,7 @@ func (s *Badger) BatchSet(keys, values [][]byte) error {
 	for i, key := range keys {
 		value := values[i]
 		//duration := time.Hour * 87600
-		//util.util.Log.Debugf("duration",duration)
+		//util.util.Debugf("duration",duration)
 		if err = txn.Set(key, value); err != nil {
 			_ = txn.Commit() //发生异常时就提交老事务，然后开一个新事务，重试set
 			txn = s.db.NewTransaction(true)

@@ -96,7 +96,7 @@ func (service *IndexServiceWorker) Init(etcdEndpoints []string, currentGroup, he
 			}
 		}
 
-		util.Log.Debug("db path: %s", dbPath)
+		util.Debug("db path: %s", dbPath)
 	}
 	return service.Indexer.Init(docNumEstimate, dbType, dbPath)
 }
@@ -127,7 +127,7 @@ func (service *IndexServiceWorker) Register(servicePort int) error {
 			service.Hub.addIndexGroup()
 		}
 	} else {
-		util.Log.Error("failed to get group key %s: %v", ServiceRootPath+indexName+currentGroup, err)
+		util.Error("failed to get group key %s: %v", ServiceRootPath+indexName+currentGroup, err)
 		return err
 	}
 

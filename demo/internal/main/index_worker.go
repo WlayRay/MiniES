@@ -1,15 +1,16 @@
 package main
 
 import (
-	"github.com/WlayRay/ElectricSearch/demo/infrastructure"
-	"github.com/WlayRay/ElectricSearch/service"
-	"github.com/WlayRay/ElectricSearch/util"
-	"google.golang.org/grpc"
 	"net"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
+
+	"github.com/WlayRay/ElectricSearch/demo/infrastructure"
+	"github.com/WlayRay/ElectricSearch/service"
+	"github.com/WlayRay/ElectricSearch/util"
+	"google.golang.org/grpc"
 )
 
 var indexService *service.IndexServiceWorker
@@ -29,7 +30,7 @@ func GrpcIndexerInit() {
 	service.RegisterIndexServiceServer(server, indexService)
 	if err := indexService.Register(port); err != nil {
 		_ = indexService.Close()
-		util.Log.Panic("failed to register: %v", err)
+		util.Panic("failed to register: %v", err)
 	}
 
 	if rebuildIndex {
@@ -41,7 +42,7 @@ func GrpcIndexerInit() {
 	err = server.Serve(lis)
 	if err != nil {
 		_ = indexService.Close()
-		util.Log.Fatal("failed to serve: %v", err)
+		util.Fatal("failed to serve: %v", err)
 	}
 }
 

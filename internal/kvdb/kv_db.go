@@ -39,12 +39,12 @@ func GetKeyValueDB(dbType int, path string) (IKeyValueDB, error) {
 		if err := os.MkdirAll(parentPath, os.ModePerm); err != nil {
 			return nil, err
 		} else {
-			util.Log.Info("create dir: %s", parentPath)
+			util.Info("create dir: %s", parentPath)
 		}
 	} else if !info.IsDir() {
 		return nil, fmt.Errorf("%s is not a directory", parentPath)
 	} else {
-		util.Log.Info("parent dir: %s", parentPath)
+		util.Info("parent dir: %s", parentPath)
 	}
 
 	var db IKeyValueDB

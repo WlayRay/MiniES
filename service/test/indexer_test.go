@@ -167,7 +167,7 @@ func TestLoadFromIndexFile(t *testing.T) {
 	if n == 0 {
 		return
 	} else {
-		util.Log.Debug("load %d document from invere document", n)
+		util.Debug("load %d document from invere document", n)
 	}
 
 	q1 := types.NewTermQuery("title", "生命起源")

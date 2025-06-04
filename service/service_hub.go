@@ -29,7 +29,7 @@ var (
 func GetServiceHub(etcdEndpoints []string, heartRate int64) *ServiceHub {
 	if serviceHub == nil {
 		if etcdClient, err := etcd.GetEtcdClient(etcdEndpoints); err != nil {
-			util.Log.Panic("etcd client init failed: %v", err)
+			util.Panic("etcd client init failed: %v", err)
 		} else {
 			serviceHub = &ServiceHub{
 				client:       etcdClient,
@@ -49,31 +49,31 @@ func (Hub *ServiceHub) Register(group, endpoint string) error {
 	// 创建租约
 	lease, err := Hub.client.Grant(timeoutCtx, Hub.heartRate)
 	if err != nil {
-		util.Log.Error("create lease failed: %v", err)
+		util.Error("create lease failed: %v", err)
 		return err
 	}
 
 	// 注册服务
 	keys := ServiceRootPath + indexName + "/" + group + "/" + endpoint
 	if _, err := Hub.client.Put(timeoutCtx, keys, "", etcdv3.WithLease(lease.ID)); err != nil {
-		util.Log.Error("register service %s endpoint %s failed: %v", group, endpoint, err)
+		util.Error("register service %s endpoint %s failed: %v", group, endpoint, err)
 		return err
 	}
 
 	// 保持租约
 	keepAliveChan, err := Hub.client.KeepAlive(context.TODO(), lease.ID)
 	if err != nil {
-		util.Log.Error("keep alive failed: %v", err)
+		util.Error("keep alive failed: %v", err)
 		return err
 	}
 
 	go func() {
 		for kaResp := range keepAliveChan {
 			if kaResp == nil {
-				util.Log.Error("keep alive channel closed for %s/%s", group, endpoint)
+				util.Error("keep alive channel closed for %s/%s", group, endpoint)
 				return
 			}
-			util.Log.Info("keep alive success for %s/%s, ID: %d", group, endpoint, kaResp.ID)
+			util.Info("keep alive success for %s/%s, ID: %d", group, endpoint, kaResp.ID)
 		}
 	}()
 
@@ -87,10 +87,10 @@ func (Hub *ServiceHub) UnRegister(group, endpoint string) error {
 
 	key := ServiceRootPath + indexName + "/" + group + "/" + endpoint
 	if _, err := Hub.client.Delete(timeoutCtx, key); err != nil {
-		util.Log.Error("unregister worker %s endpoint %s failed: %v", group, endpoint, err)
+		util.Error("unregister worker %s endpoint %s failed: %v", group, endpoint, err)
 		return err
 	} else {
-		util.Log.Info("unregister worker %s endpoint %s success", group, endpoint)
+		util.Info("unregister worker %s endpoint %s success", group, endpoint)
 		return nil
 	}
 }
@@ -102,7 +102,7 @@ func (Hub *ServiceHub) GetServiceEndpoints(group string) []string {
 
 	prefix := ServiceRootPath + indexName + "/" + group
 	if resp, err := Hub.client.Get(timeoutCtx, prefix, etcdv3.WithPrefix()); err != nil {
-		util.Log.Error("get group %s endpoints failed: %v", group, err)
+		util.Error("get group %s endpoints failed: %v", group, err)
 		return nil
 	} else if resp.Count != 0 {
 		endpoints := make([]string, 0, len(resp.Kvs))
@@ -110,7 +110,7 @@ func (Hub *ServiceHub) GetServiceEndpoints(group string) []string {
 			path := strings.Split(string(kv.Key), "/") // 只需要key，不需要value
 			endpoints = append(endpoints, path[len(path)-1])
 		}
-		util.Log.Info("now the %s group has endpoints: %v", group, endpoints)
+		util.Info("now the %s group has endpoints: %v", group, endpoints)
 		return endpoints
 	} else {
 		return nil
@@ -138,7 +138,7 @@ func (Hub *ServiceHub) addIndexGroup() int {
 	}
 	defer func() {
 		if err := lock.Release(); err != nil {
-			util.Log.Fatal("failed to release lock: %v", err)
+			util.Fatal("failed to release lock: %v", err)
 		}
 	}()
 
@@ -157,13 +157,13 @@ func (Hub *ServiceHub) addIndexGroup() int {
 			count, err = strconv.Atoi(string(value))
 		}
 		if err != nil {
-			util.Log.Error("failed to convert value to int: %v", err)
+			util.Error("failed to convert value to int: %v", err)
 			return 0
 		}
 		count++
 		_, err = Hub.client.Put(timeoutCtx, key, strconv.Itoa(count))
 		if err != nil {
-			util.Log.Error("failed to put updated value to etcd: %v", err)
+			util.Error("failed to put updated value to etcd: %v", err)
 			return 0
 		}
 		return count
@@ -182,7 +182,7 @@ func (Hub *ServiceHub) subIndexGroup() {
 	}
 	defer func() {
 		if err := lock.Release(); err != nil {
-			util.Log.Error("failed to release lock: %v", err)
+			util.Error("failed to release lock: %v", err)
 		}
 	}()
 
@@ -194,7 +194,7 @@ func (Hub *ServiceHub) subIndexGroup() {
 		value := res.Kvs[0].Value
 		count, err := strconv.Atoi(string(value))
 		if err != nil {
-			util.Log.Error("failed to convert value to int: %v", err)
+			util.Error("failed to convert value to int: %v", err)
 			return
 		}
 		count--
@@ -204,7 +204,7 @@ func (Hub *ServiceHub) subIndexGroup() {
 		}
 		_, err = Hub.client.Put(timeoutCtx, key, strconv.Itoa(count))
 		if err != nil {
-			util.Log.Error("failed to put updated value to etcd: %v", err)
+			util.Error("failed to put updated value to etcd: %v", err)
 			return
 		}
 		return
@@ -222,7 +222,7 @@ func (Hub *ServiceHub) CountIndexGroup() int {
 	}
 	defer func() {
 		if err := lock.Release(); err != nil {
-			util.Log.Error("failed to release lock: %v", err)
+			util.Error("failed to release lock: %v", err)
 		}
 	}()
 
@@ -235,7 +235,7 @@ func (Hub *ServiceHub) CountIndexGroup() int {
 			value := res.Kvs[0].Value
 			count, err := strconv.Atoi(string(value))
 			if err != nil {
-				util.Log.Error("failed to convert value to int: %v", err)
+				util.Error("failed to convert value to int: %v", err)
 				return 0
 			}
 			return count

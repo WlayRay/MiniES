@@ -2,6 +2,7 @@ package util
 
 import (
 	"errors"
+	"log"
 	"net"
 )
 
@@ -27,7 +28,7 @@ func GetLocalIP() (ipv4 string, err error) {
 					// 跳过IPV6
 					if ipNet.IP.To4() != nil {
 						ipv4 = ipNet.IP.String()
-						Log.Info("found local IP: %s", ipv4)
+						log.Printf("found local IP: %s", ipv4)
 						return
 					}
 				}
